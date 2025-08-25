@@ -22,7 +22,6 @@ import json
 import netrc
 import os
 import re
-import subprocess
 import sys
 import urllib.error
 import urllib.parse
@@ -61,6 +60,10 @@ try:
         githubauth = None
 except:
     githubauth = None
+
+def add_auth(githubreq):
+    if githubauth:
+        githubreq.add_header("Authorization","Basic %s" % githubauth)
 
 if not depsonly:
     githubreq = urllib.request.Request("https://raw.githubusercontent.com/LineageOS/mirror/main/default.xml")
@@ -266,17 +269,10 @@ def get_default_or_fallback_revision(repo_name):
     print("Default revision: %s" % default_revision)
     print("Checking branch info")
 
-    try:
-        stdout = subprocess.run(
-            ["git", "ls-remote", "-b", "https://:@github.com/LineageOS/" + repo_name],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        ).stdout.decode()
-        branches = [x.split("refs/heads/")[-1] for x in stdout.splitlines()]
-    except:
-        return ""
-
-    if default_revision in branches:
+    githubreq = urllib.request.Request("https://api.github.com/repos/LineageOS/" + repo_name + "/branches")
+    add_auth(githubreq)
+    result = json.loads(urllib.request.urlopen(githubreq, timeout=5).read().decode())
+    if has_branch(result, default_revision):
         return default_revision
 
     fallbacks = [ get_default_revision_no_minor() ]
@@ -284,13 +280,13 @@ def get_default_or_fallback_revision(repo_name):
         fallbacks += list(filter(bool, os.getenv('ROOMSERVICE_BRANCHES').split(' ')))
 
     for fallback in fallbacks:
-        if fallback in branches:
+        if has_branch(result, fallback):
             print("Using fallback branch: %s" % fallback)
             return fallback
 
     print("Default revision %s not found in %s. Bailing." % (default_revision, repo_name))
     print("Branches found:")
-    for branch in branches:
+    for branch in [branch['name'] for branch in result]:
         print(branch)
     print("Use the ROOMSERVICE_BRANCHES environment variable to specify a list of fallback branches.")
     return ""
