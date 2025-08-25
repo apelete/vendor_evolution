@@ -289,7 +289,7 @@ def get_default_or_fallback_revision(repo_name):
     for branch in [branch['name'] for branch in result]:
         print(branch)
     print("Use the ROOMSERVICE_BRANCHES environment variable to specify a list of fallback branches.")
-    return ""
+    sys.exit()
 
 if depsonly:
     repo_path = get_from_manifest(device)
@@ -308,12 +308,6 @@ else:
             manufacturer = repo_name.replace("android_device_", "").replace("_" + device, "")
             repo_path = "device/%s/%s" % (manufacturer, device)
             revision = get_default_or_fallback_revision(repo_name)
-            if revision == "":
-                # Some devices have the same codename but shipped a long time ago and may not have
-                # a current branch set up.
-                # Continue looking up all repositories until a match is found or no repos are left
-                # to check.
-                continue
 
             device_repository = {'repository':repo_name,'target_path':repo_path,'branch':revision}
             add_to_manifest([device_repository])
